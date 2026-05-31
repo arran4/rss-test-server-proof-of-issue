@@ -68,8 +68,12 @@ func TestFeedHandler(t *testing.T) {
 }
 
 func TestItemHandler(t *testing.T) {
-	s := &Server{}
+	s := &Server{
+		minDelay: 0,
+		maxDelay: 0,
+	}
 	req, err := http.NewRequest("GET", "/item/1760000000?offset=0", nil)
+	req.SetPathValue("unix", "1760000000") // Required since we're using r.PathValue now, and direct ServeHTTP doesn't route
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,8 +82,6 @@ func TestItemHandler(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(s.item)
 
-	// Since item handler sleeps randomly, we might just want to let it do its thing
-	// The sleep min is 400ms, max 4s, which is fine for tests unless it causes timeout
 	handler.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
@@ -100,6 +102,7 @@ func TestItemHandler(t *testing.T) {
 func TestItemHandlerInvalidTimestamp(t *testing.T) {
 	s := &Server{}
 	req, err := http.NewRequest("GET", "/item/invalid", nil)
+	req.SetPathValue("unix", "invalid")
 	if err != nil {
 		t.Fatal(err)
 	}

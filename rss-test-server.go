@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/binary"
 	"encoding/xml"
 	"flag"
 	"fmt"
@@ -46,7 +44,8 @@ type GUID struct {
 
 type Server struct {
 	publicBaseURL string
-	rng           *mathrand.Rand
+	minDelay      time.Duration
+	maxDelay      time.Duration
 }
 
 func main() {
@@ -54,38 +53,30 @@ func main() {
 	publicBaseURL := flag.String("base-url", "", "public base URL, e.g. http://localhost:8080; defaults to request Host")
 	flag.Parse()
 
-	seed := secureSeed()
 	s := &Server{
 		publicBaseURL: strings.TrimRight(*publicBaseURL, "/"),
-		rng:           mathrand.New(mathrand.NewSource(seed)),
+		minDelay:      400 * time.Millisecond,
+		maxDelay:      4 * time.Second,
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.index)
-	mux.HandleFunc("/feed.xml", s.feed)
-	mux.HandleFunc("/item/", s.item)
+	mux.HandleFunc("GET /", s.index)
+	mux.HandleFunc("GET /feed.xml", s.feed)
+	mux.HandleFunc("GET /item/{unix}", s.item)
 
 	log.Printf("RSS test server listening on %s", *addr)
-	log.Printf("Feed URL: http://localhost%s/feed.xml", normalizeAddrForLog(*addr))
+	log.Printf("Feed URL: http://%s/feed.xml", normalizeAddrForLog(*addr))
 
 	if err := http.ListenAndServe(*addr, mux); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func secureSeed() int64 {
-	var b [8]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return time.Now().UnixNano()
-	}
-	return int64(binary.LittleEndian.Uint64(b[:]))
-}
-
 func normalizeAddrForLog(addr string) string {
 	if strings.HasPrefix(addr, ":") {
-		return addr
+		return "localhost" + addr
 	}
-	return "/" + addr
+	return addr
 }
 
 func (s *Server) baseURL(r *http.Request) string {
@@ -110,17 +101,7 @@ func (s *Server) baseURL(r *http.Request) string {
 	return scheme + "://" + host
 }
 
-func (s *Server) index(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-
-	base := s.baseURL(r)
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-	page := `<!doctype html>
+var indexTemplate = template.Must(template.New("index").Parse(`<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -138,9 +119,19 @@ func (s *Server) index(w http.ResponseWriter, r *http.Request) {
     <li>Item timestamps are Unix times</li>
   </ul>
 </body>
-</html>`
+</html>`))
 
-	_ = template.Must(template.New("index").Parse(page)).Execute(w, map[string]string{
+func (s *Server) index(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+
+	base := s.baseURL(r)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	_ = indexTemplate.Execute(w, map[string]string{
 		"Base": base,
 	})
 }
@@ -202,8 +193,7 @@ func (s *Server) feed(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) item(w http.ResponseWriter, r *http.Request) {
-	raw := strings.TrimPrefix(r.URL.Path, "/item/")
-	raw = strings.Trim(raw, "/")
+	raw := r.PathValue("unix")
 
 	unixTime, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil {
@@ -216,7 +206,7 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request) {
 		offset = "unknown"
 	}
 
-	wait := s.randomDelay(400*time.Millisecond, 4*time.Second)
+	wait := s.randomDelay(s.minDelay, s.maxDelay)
 	time.Sleep(wait)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -240,9 +230,5 @@ func (s *Server) randomDelay(min, max time.Duration) time.Duration {
 
 	span := int64(max - min)
 
-	// math/rand.Rand is not safe for concurrent use.
-	// For a small test server, avoid shared RNG state by making a quick local RNG.
-	local := mathrand.New(mathrand.NewSource(time.Now().UnixNano() ^ secureSeed()))
-
-	return min + time.Duration(local.Int63n(span+1))
+	return min + time.Duration(mathrand.Int63n(span+1))
 }

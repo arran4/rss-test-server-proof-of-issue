@@ -180,13 +180,16 @@ jobs:
         with:
           mode: install
       - id: tag
+        env:
+          MODE_INPUT: ${{ inputs.mode }}
+          OVERRIDE_INPUT: ${{ inputs.release_version_override }}
         shell: bash
         run: |
           set -euo pipefail
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          MODE="${{ inputs.mode }}"
-          OVERRIDE="${{ inputs.release_version_override }}"
+          MODE="${MODE_INPUT}"
+          OVERRIDE="${OVERRIDE_INPUT}"
 
           if [[ -n "$OVERRIDE" ]]; then
             # Accept "1.2.3" or "v1.2.3" override input.
@@ -297,33 +300,6 @@ jobs:
           go-version-file: go.mod
           cache: true
       - run: go vet ./...
-
-  go-fmt-pr:
-    name: go fmt -> PR (manual dispatch)
-    needs: [route, discover]
-    if: ${{ needs.discover.outputs.has_go == 'true' && github.event_name == 'workflow_dispatch' && inputs.mode == 'lint-fix' && inputs.allow_prs == true }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-      - name: Run go fmt
-        run: go fmt ./...
-      - name: Create PR if go fmt changed files
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          git diff --quiet && { echo "No fmt changes"; exit 0; }
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          BRANCH="ci/gofmt/${{ github.run_id }}"
-          git checkout -b "$BRANCH"
-          git add -A
-          git commit -m "ci: go fmt"
-          git push origin "$BRANCH"
-          gh pr create --title "ci: go fmt" --body "Automated go fmt from manual dispatch." --base main --head "$BRANCH" --label "ci-autofix"
 
   autofix:
     name: Auto-format and open PR

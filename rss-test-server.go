@@ -187,6 +187,7 @@ func (s *Server) feed(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := w.Write([]byte(xml.Header)); err != nil {
 		log.Printf("write xml header: %v", err)
+		return
 	}
 
 	enc := xml.NewEncoder(w)
@@ -218,26 +219,14 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request) {
 
 	itemURL := s.baseURL(r) + "/item/" + url.PathEscape(raw)
 
-	if _, err := fmt.Fprintf(w, "RSS client test item\n"); err != nil {
-		log.Printf("write item line 1: %v", err)
-	}
-	if _, err := fmt.Fprintf(w, "\n"); err != nil {
-		log.Printf("write item line 2: %v", err)
-	}
-	if _, err := fmt.Fprintf(w, "unix_time: %d\n", unixTime); err != nil {
-		log.Printf("write item line 3: %v", err)
-	}
-	if _, err := fmt.Fprintf(w, "utc_time: %s\n", time.Unix(unixTime, 0).UTC().Format(time.RFC3339)); err != nil {
-		log.Printf("write item line 4: %v", err)
-	}
-	if _, err := fmt.Fprintf(w, "offset_seconds: %s\n", offset); err != nil {
-		log.Printf("write item line 5: %v", err)
-	}
-	if _, err := fmt.Fprintf(w, "random_wait_ms: %d\n", wait.Milliseconds()); err != nil {
-		log.Printf("write item line 6: %v", err)
-	}
-	if _, err := fmt.Fprintf(w, "url: %s\n", itemURL); err != nil {
-		log.Printf("write item line 7: %v", err)
+	if _, err := fmt.Fprintf(w, "RSS client test item\n\nunix_time: %d\nutc_time: %s\noffset_seconds: %s\nrandom_wait_ms: %d\nurl: %s\n",
+		unixTime,
+		time.Unix(unixTime, 0).UTC().Format(time.RFC3339),
+		offset,
+		wait.Milliseconds(),
+		itemURL,
+	); err != nil {
+		log.Printf("write item: %v", err)
 	}
 }
 

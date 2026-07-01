@@ -131,9 +131,11 @@ func (s *Server) index(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	_ = indexTemplate.Execute(w, map[string]string{
+	if err := indexTemplate.Execute(w, map[string]string{
 		"Base": base,
-	})
+	}); err != nil {
+		log.Printf("execute index template: %v", err)
+	}
 }
 
 func (s *Server) feed(w http.ResponseWriter, r *http.Request) {
@@ -183,7 +185,10 @@ func (s *Server) feed(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/rss+xml; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
-	_, _ = w.Write([]byte(xml.Header))
+	if _, err := w.Write([]byte(xml.Header)); err != nil {
+		log.Printf("write xml header: %v", err)
+		return
+	}
 
 	enc := xml.NewEncoder(w)
 	enc.Indent("", "  ")
@@ -214,13 +219,15 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request) {
 
 	itemURL := s.baseURL(r) + "/item/" + url.PathEscape(raw)
 
-	_, _ = fmt.Fprintf(w, "RSS client test item\n")
-	_, _ = fmt.Fprintf(w, "\n")
-	_, _ = fmt.Fprintf(w, "unix_time: %d\n", unixTime)
-	_, _ = fmt.Fprintf(w, "utc_time: %s\n", time.Unix(unixTime, 0).UTC().Format(time.RFC3339))
-	_, _ = fmt.Fprintf(w, "offset_seconds: %s\n", offset)
-	_, _ = fmt.Fprintf(w, "random_wait_ms: %d\n", wait.Milliseconds())
-	_, _ = fmt.Fprintf(w, "url: %s\n", itemURL)
+	if _, err := fmt.Fprintf(w, "RSS client test item\n\nunix_time: %d\nutc_time: %s\noffset_seconds: %s\nrandom_wait_ms: %d\nurl: %s\n",
+		unixTime,
+		time.Unix(unixTime, 0).UTC().Format(time.RFC3339),
+		offset,
+		wait.Milliseconds(),
+		itemURL,
+	); err != nil {
+		log.Printf("write item: %v", err)
+	}
 }
 
 func (s *Server) randomDelay(min, max time.Duration) time.Duration {

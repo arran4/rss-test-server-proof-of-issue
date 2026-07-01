@@ -239,16 +239,16 @@ jobs:
             fi
           fi
 
-          [[ "$next_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]] || {
+          if ! [[ "$next_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]]; then
             echo "Invalid tag format: $next_tag" >&2
             exit 1
-          }
+          fi
           git fetch --tags --force
           if git rev-parse "$next_tag" >/dev/null 2>&1; then
             echo "Tag already exists: $next_tag" >&2
             echo "Choose a new mode or set release_version_override." >&2
             exit 1
-          }
+          fi
 
           echo "release_tag=$next_tag" >> "$GITHUB_OUTPUT"
           clean_tag="${next_tag#v}"; clean_tag="${clean_tag%%-*}"
@@ -388,7 +388,7 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && startsWith(inputs.mode, 'release-') }}
         run: git tag ${{ needs.prepare-release-tag.outputs.release_tag }}
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: '~> v2'

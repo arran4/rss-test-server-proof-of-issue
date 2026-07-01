@@ -214,13 +214,13 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request) {
 
 	itemURL := s.baseURL(r) + "/item/" + url.PathEscape(raw)
 
-	fmt.Fprintf(w, "RSS client test item\n")
-	fmt.Fprintf(w, "\n")
-	fmt.Fprintf(w, "unix_time: %d\n", unixTime)
-	fmt.Fprintf(w, "utc_time: %s\n", time.Unix(unixTime, 0).UTC().Format(time.RFC3339))
-	fmt.Fprintf(w, "offset_seconds: %s\n", offset)
-	fmt.Fprintf(w, "random_wait_ms: %d\n", wait.Milliseconds())
-	fmt.Fprintf(w, "url: %s\n", itemURL)
+	_, _ = fmt.Fprintf(w, "RSS client test item\n")
+	_, _ = fmt.Fprintf(w, "\n")
+	_, _ = fmt.Fprintf(w, "unix_time: %d\n", unixTime)
+	_, _ = fmt.Fprintf(w, "utc_time: %s\n", time.Unix(unixTime, 0).UTC().Format(time.RFC3339))
+	_, _ = fmt.Fprintf(w, "offset_seconds: %s\n", offset)
+	_, _ = fmt.Fprintf(w, "random_wait_ms: %d\n", wait.Milliseconds())
+	_, _ = fmt.Fprintf(w, "url: %s\n", itemURL)
 }
 
 func (s *Server) randomDelay(min, max time.Duration) time.Duration {
